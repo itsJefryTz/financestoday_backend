@@ -3,6 +3,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
+from apps.categories.models import Category
+from apps.categories.serializers import CategorySerializer
 from apps.income.models import Income
 from apps.income.serializers import IncomeSerializer
 from apps.expense.models import Expense
@@ -12,6 +14,22 @@ from apps.reports.serializers import ReportSerializer
 from apps.reports.utils import generate_reports
 
 # Create your views here.
+class UserCategoriesList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        categories = Category.objects.filter(user=user).order_by('-created_at')
+        serializer = CategorySerializer(categories, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = CategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 class UserIncomeList(APIView):
     permission_classes = [IsAuthenticated]
 
