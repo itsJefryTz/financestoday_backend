@@ -8,9 +8,9 @@ from .views import UserInfoView, UserRegistrationView
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="RetroPixel Studio (Users API)",
+      title="Finances Today API",
       default_version='v1',
-      description="Documentación de los endpoints de la aplicación 'users'.",
+      description="Documentación de los endpoints.",
       terms_of_service="https://www.google.com/policies/terms/",
       contact=openapi.Contact(email="contact@miapi.local"),
       license=openapi.License(name="BSD License"),

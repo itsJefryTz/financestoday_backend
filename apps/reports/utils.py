@@ -1,6 +1,6 @@
 from django.utils import timezone
-from datetime import timedelta, date
-from django.db.models import Sum
+from datetime import timedelta, date, datetime
+from django.db.models import Sum, Max, Min
 
 from apps.income.models import Income
 from apps.expense.models import Expense
@@ -31,7 +31,7 @@ def generate_reports(user):
                 daily_income = Income.objects.filter(user=user, date=current_date).aggregate(total=Sum('amount'))['total'] or 0
                 daily_expense = Expense.objects.filter(user=user, date=current_date).aggregate(total=Sum('amount'))['total'] or 0
                 
-                # Solo crear reporte si hay ingresos o gastos
+                # Solo crear reporte si hay ingresos o gastos.
                 if daily_income > 0 or daily_expense > 0:
                     daily_balance = daily_income - daily_expense
                     
@@ -54,13 +54,13 @@ def generate_reports(user):
             # Create weekly reports.
             current_date = oldest_date
             while current_date <= today:
-                week_start = current_date - timedelta(days=current_date.weekday())  # Lunes de esa semana
-                week_end = week_start + timedelta(days=6)  # Domingo de esa semana
+                week_start = current_date - timedelta(days=current_date.weekday()) # Lunes de esa semana.
+                week_end = week_start + timedelta(days=6) # Domingo de esa semana.
                 
                 weekly_income = Income.objects.filter(user=user, date__range=(week_start, week_end)).aggregate(total=Sum('amount'))['total'] or 0
                 weekly_expense = Expense.objects.filter(user=user, date__range=(week_start, week_end)).aggregate(total=Sum('amount'))['total'] or 0
                 
-                # Solo crear reporte si hay ingresos o gastos
+                # Solo crear reporte si hay ingresos o gastos.
                 if weekly_income > 0 or weekly_expense > 0:
                     weekly_balance = weekly_income - weekly_expense
                     
@@ -81,34 +81,56 @@ def generate_reports(user):
                 current_date += timedelta(days=7)
 
             # Create monthly reports.
-            current_date = oldest_date
-            while current_date <= today:
-                month_start = current_date.replace(day=1)
-                next_month = month_start.month + 1 if month_start.month < 12 else 1
-                month_end = (month_start.replace(month=next_month, day=1) - timedelta(days=1)) if next_month != 1 else month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
-                
-                monthly_income = Income.objects.filter(user=user, date__range=(month_start, month_end)).aggregate(total=Sum('amount'))['total'] or 0
-                monthly_expense = Expense.objects.filter(user=user, date__range=(month_start, month_end)).aggregate(total=Sum('amount'))['total'] or 0
-                
-                # Solo crear reporte si hay ingresos o gastos
-                if monthly_income > 0 or monthly_expense > 0:
-                    monthly_balance = monthly_income - monthly_expense
+            latest_income_date = Income.objects.filter(user=user).aggregate(Max('date'))['date__max']
+            latest_expense_date = Expense.objects.filter(user=user).aggregate(Max('date'))['date__max']
+            latest_date = max(latest_income_date, latest_expense_date)
+
+            # Obtener la fecha más antigua de ingresos y gastos.
+            oldest_income_date = Income.objects.filter(user=user).aggregate(Min('date'))['date__min']
+            oldest_expense_date = Expense.objects.filter(user=user).aggregate(Min('date'))['date__min']
+            oldest_date = min(oldest_income_date, oldest_expense_date)
+
+            if latest_date and oldest_date:
+                start_year = oldest_date.year
+                end_year = latest_date.year
+
+                for year in range(start_year, end_year + 1):
+                    # Establecer el inicio y fin del año
+                    start_of_year = datetime(year, 1, 1)
+                    end_of_year = datetime(year, 12, 31)
+
+                    # Comenzar desde el primer día de enero
+                    current_date = start_of_year
                     
-                    report = Report.objects.filter(user=user, start_date=month_start).first()
-                    if report:
-                        report.type = 'Mensual'
-                        report.start_date = month_start
-                        report.end_date = month_end
-                        report.income = monthly_income
-                        report.expense = monthly_expense
-                        report.balance = monthly_balance
-                        report.save()
-                    else:
-                        Report.objects.create(
-                            user=user, type='Mensual',
-                            start_date=month_start, end_date=month_end, income=monthly_income, 
-                            expense=monthly_expense, balance=monthly_balance)
-                current_date += timedelta(days=30)  # Avanzar al próximo mes
+                    while current_date <= end_of_year:
+                        month_start = current_date.replace(day=1)
+                        next_month = month_start.month + 1 if month_start.month < 12 else 1
+                        month_end = (month_start.replace(month=next_month, day=1) - timedelta(days=1)) if next_month != 1 else month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+                        
+                        monthly_income = Income.objects.filter(user=user, date__range=(month_start, month_end)).aggregate(total=Sum('amount'))['total'] or 0
+                        monthly_expense = Expense.objects.filter(user=user, date__range=(month_start, month_end)).aggregate(total=Sum('amount'))['total'] or 0
+                        monthly_balance = monthly_income - monthly_expense
+                        
+                        report = Report.objects.filter(user=user, start_date=month_start).first()
+                        if report:
+                            report.type = 'Mensual'
+                            report.start_date = month_start
+                            report.end_date = month_end
+                            report.income = monthly_income
+                            report.expense = monthly_expense
+                            report.balance = monthly_balance
+                            report.save()
+                        else:
+                            Report.objects.create(
+                                user=user, type='Mensual',
+                                start_date=month_start, end_date=month_end, income=monthly_income, 
+                                expense=monthly_expense, balance=monthly_balance)
+
+                        # Avanzar al primer día del siguiente mes
+                        if current_date.month == 12:
+                            current_date = current_date.replace(year=current_date.year + 1, month=1, day=1)
+                        else:
+                            current_date = current_date.replace(month=current_date.month + 1, day=1)
 
             # Create annual reports.
             current_year = oldest_date.year
@@ -119,11 +141,11 @@ def generate_reports(user):
                 annual_income = Income.objects.filter(user=user, date__range=(year_start, year_end)).aggregate(total=Sum('amount'))['total'] or 0
                 annual_expense = Expense.objects.filter(user=user, date__range=(year_start, year_end)).aggregate(total=Sum('amount'))['total'] or 0
                 
-                # Solo crear reporte si hay ingresos o gastos
+                # Solo crear reporte si hay ingresos o gastos.
                 if annual_income > 0 or annual_expense > 0:
                     annual_balance = annual_income - annual_expense
                     
-                    report = Report.objects.filter(user=user, start_date=year_start).first()
+                    report = Report.objects.filter(user=user, start_date=year_start, type='Anual').first()
                     if report:
                         report.type = 'Anual'
                         report.start_date = year_start
