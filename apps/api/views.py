@@ -14,7 +14,7 @@ from apps.expense.models import Expense
 from apps.expense.serializers import ExpenseSerializer
 from apps.reports.models import Report
 from apps.reports.serializers import ReportSerializer
-from apps.reports.utils import generate_reports
+from apps.reports.utils import generate_monthly_reports
 
 # Create your views here.
 class UserDashboardData(APIView):
@@ -30,7 +30,7 @@ class UserDashboardData(APIView):
         latest_expense_date = Expense.objects.filter(user=request.user).aggregate(Max('date'))['date__max']
         latest_date = max(latest_income_date, latest_expense_date)
         latest_date_year = latest_date.year
-        generate_reports(request.user)
+        generate_monthly_reports(request.user)
         monthly_reports = Report.objects.filter(user=request.user, type='Mensual', start_date__year=latest_date_year).order_by('start_date')
         serialized_reports = ReportSerializer(monthly_reports, many=True).data
         return Response({
