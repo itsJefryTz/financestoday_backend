@@ -34,6 +34,9 @@ class UserDashboardData(APIView):
         latest_date_year = latest_date.year
         monthly_reports = Report.objects.filter(user=request.user, type='Mensual', start_date__year=latest_date_year).order_by('start_date')
         serialized_reports = ReportSerializer(monthly_reports, many=True).data
+        total_income_year = Income.objects.filter(user=request.user, date__year=now.year).aggregate(total=Sum('amount'))['total'] or 0
+        total_expenses_year = Expense.objects.filter(user=request.user, date__year=now.year).aggregate(total=Sum('amount'))['total'] or 0
+        total_balance_year = total_income_year - total_expenses_year
         # get income and expenses for this month.
         income_this_month_obj = Income.objects.filter(user=request.user, date__year=now.year, date__month=now.month)
         serialized_income = IncomeSerializer(income_this_month_obj, many=True).data
@@ -47,7 +50,12 @@ class UserDashboardData(APIView):
                 'total_balance_this_month': total_balance_this_month,
                 'total_movements_this_month': total_movements_this_month},
             'chart_and_tables': {
-                'monthly_reports': serialized_reports,
+                'monthly_reports_table': {
+                    'monthly_reports': serialized_reports,
+                    'total_income_year': total_income_year,
+                    'total_expenses_year': total_expenses_year,
+                    'total_balance_year': total_balance_year
+                },
                 'income_this_month': serialized_income,
                 'expenses_this_month': serialized_expenses},
         }, status=status.HTTP_200_OK)
