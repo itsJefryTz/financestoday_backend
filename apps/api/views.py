@@ -6,12 +6,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from apps.categories.models import Category
-from apps.categories.serializers import CategorySerializer
+# from apps.categories.models import Category
+# from apps.categories.serializers import CategorySerializer
 from apps.income.models import Income
-from apps.income.serializers import IncomeSerializer
+# from apps.income.serializers import IncomeSerializer
 from apps.expense.models import Expense
-from apps.expense.serializers import ExpenseSerializer
+# from apps.expense.serializers import ExpenseSerializer
 from apps.reports.models import Report
 from apps.reports.serializers import ReportSerializer
 from apps.reports.utils import generate_reports, generate_monthly_reports, recent_income_or_expense
@@ -31,7 +31,10 @@ class UserDashboardData(APIView):
         # obtain monthly reports for the current year.
         generate_monthly_reports(request.user)
         latest_date = recent_income_or_expense(request.user)
-        latest_date_year = latest_date.year
+        if latest_date:
+            latest_date_year = latest_date.year
+        else:
+            latest_date_year = now.year
         monthly_reports = Report.objects.filter(user=request.user, type='Mensual', start_date__year=latest_date_year).order_by('start_date')
         serialized_reports = ReportSerializer(monthly_reports, many=True).data
         total_income_year = Income.objects.filter(user=request.user, date__year=now.year).aggregate(total=Sum('amount'))['total'] or 0
@@ -53,7 +56,8 @@ class UserDashboardData(APIView):
                 }},
         }, status=status.HTTP_200_OK)
 
-"""class UserCategoriesList(APIView):
+"""
+class UserCategoriesList(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -116,4 +120,5 @@ class UserReportsList(APIView):
         if serializer.is_valid():
             serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)"""
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+"""

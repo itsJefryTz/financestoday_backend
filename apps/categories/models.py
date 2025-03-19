@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 # Create your models here.
 class Category(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='category_user', verbose_name='Usuario')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='category_user', verbose_name='Usuario')
     TYPE_CHOICES = [('Ingreso', 'Ingreso'), ('Gasto', 'Gasto'),]
     type = models.CharField(max_length=7, choices=TYPE_CHOICES, verbose_name='Tipo')
     name = models.CharField(max_length=255, verbose_name='Nombre')
