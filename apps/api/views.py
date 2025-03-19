@@ -1,4 +1,4 @@
-from django.db.models import Sum, Max
+from django.db.models import Sum
 from django.utils import timezone
 
 from rest_framework.views import APIView
@@ -37,11 +37,6 @@ class UserDashboardData(APIView):
         total_income_year = Income.objects.filter(user=request.user, date__year=now.year).aggregate(total=Sum('amount'))['total'] or 0
         total_expenses_year = Expense.objects.filter(user=request.user, date__year=now.year).aggregate(total=Sum('amount'))['total'] or 0
         total_balance_year = total_income_year - total_expenses_year
-        # get income and expenses for this month.
-        income_this_month_obj = Income.objects.filter(user=request.user, date__year=now.year, date__month=now.month)
-        serialized_income = IncomeSerializer(income_this_month_obj, many=True).data
-        expenses_this_month_obj = Expense.objects.filter(user=request.user, date__year=now.year, date__month=now.month)
-        serialized_expenses = ExpenseSerializer(expenses_this_month_obj, many=True).data
         return Response({
             'message': '¡Estás autenticado!',
             'card_data': {
@@ -55,12 +50,10 @@ class UserDashboardData(APIView):
                     'total_income_year': total_income_year,
                     'total_expenses_year': total_expenses_year,
                     'total_balance_year': total_balance_year
-                },
-                'income_this_month': serialized_income,
-                'expenses_this_month': serialized_expenses},
+                }},
         }, status=status.HTTP_200_OK)
 
-class UserCategoriesList(APIView):
+"""class UserCategoriesList(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -118,7 +111,7 @@ class UserReportsList(APIView):
         serializer = ReportSerializer(reports, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    """def post(self, request):
+    def post(self, request):
         serializer = ReportSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=request.user)
